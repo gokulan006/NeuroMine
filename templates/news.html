@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Latest mining industry news and updates from NeuroMine">
+    <title>Mining News Summary | NeuroMine</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='news.css') }}">
+    <link rel="logo" href="{{ url_for('static', filename='logo.png') }}">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img class="logo" src="{{ url_for('static', filename='logo.png') }}" alt="NeuroMine Logo">
+            <span class="logo-name">NeuroMine</span>
+        </div>
+        
+        <div class="sidebar-section">
+            <button class="nav-btn" onclick="goBack()">
+                <i class="fas fa-arrow-left btn-icon" aria-hidden="true"></i>
+                <span class="btn-text">Back to Chat</span>
+            </button>
+        </div>
+        
+        <div class="sidebar-section">
+            <h2 class="sidebar-title">Date Range</h2>
+            <div class="date-filter">
+                <label for="startDate" class="sr-only">Start Date</label>
+                <input type="date" id="startDate" class="date-input" aria-label="Start date">
+                <span class="date-separator">to</span>
+                <label for="endDate" class="sr-only">End Date</label>
+                <input type="date" id="endDate" class="date-input" aria-label="End date">
+            </div>
+        </div>
+        
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="user-avatar">👤</div>
+                <div class="user-info">
+                    <span class="user-name">Mining Analyst</span>
+                    <span class="user-status">Online</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <header class="news-header">
+            <h1><i class="fas fa-newspaper" aria-hidden="true"></i> Mining Industry News</h1>
+            <div class="search-bar">
+                <label for="newsSearch" class="sr-only">Search news articles</label>
+                <input type="text" id="newsSearch" placeholder="Search headlines and content..." aria-label="Search news articles">
+                <button type="button" aria-label="Search" onclick="searchNews()"><i class="fas fa-search" aria-hidden="true"></i></button>
+            </div>
+        </header>
+        
+        <div class="news-filters">
+            <div class="filter-group">
+                <label for="timeFilter">Time Period:</label>
+                <select id="timeFilter" aria-label="Filter by time period" onchange="applyFilters()">
+                    <option value="all">All Articles</option>
+                    <option value="7days">Last 7 Days</option>
+                    <option value="30days">Last 30 Days</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="sortFilter">Sort By:</label>
+                <select id="sortFilter" aria-label="Sort articles by" onchange="applyFilters()">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="relevance">Relevance</option>
+                </select>
+            </div>
+            <div class="results-info" id="resultsInfo">
+                Loading articles...
+            </div>
+        </div>
+
+        <div class="loading" id="loadingIndicator">
+            <i class="fas fa-spinner"></i>
+            <p>Loading articles...</p>
+        </div>
+        
+        <div class="news-grid" id="newsGrid" role="list">
+             
+        </div>
+
+        <div class="no-results" id="noResults" style="display: none;">
+            <i class="fas fa-search"></i>
+            <h3>No articles found</h3>
+            <p>Try adjusting your search criteria or date range.</p>
+        </div>
+        
+        <nav class="pagination" id="pagination" aria-label="News pagination">
+            <!-- Pagination will be generated here -->
+        </nav>
+    </div>
+
+    <!-- Modal for full article -->
+    <div id="articleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle"></h2>
+                <button class="close" onclick="closeModal()" aria-label="Close article">&times;</button>
+            </div>
+            <div class="modal-meta" id="modalMeta"></div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        let allArticles = [];
+        let filteredArticles = [];
+        let currentPage = 1;
+        const articlesPerPage = 6;
+
+        // Fetch articles JSON from Flask API
+        async function fetchArticlesData() {
+            const response = await fetch('/api/news');
+            return await response.json(); // ✅ JSON, no CSV parsing
+        }
+
+        // Load and initialize articles
+        async function loadArticles() {
+            try {
+                document.getElementById('loadingIndicator').style.display = 'block';
+
+                // Fetch JSON data from Flask
+                allArticles = await fetchArticlesData();
+
+                // Format dates for display
+                allArticles.forEach(article => {
+                    article.displayDate = formatDate(article.published_date);
+                });
+
+                // Initialize with all articles
+                filteredArticles = [...allArticles];
+
+                updateResultsInfo();
+                renderArticles();
+                renderPagination();
+
+                document.getElementById('loadingIndicator').style.display = 'none';
+            } catch (error) {
+                console.error('Error loading articles:', error);
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('newsGrid').innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Error loading articles</h3>
+                        <p>Please try again later.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Format date helper
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        // Render articles for current page
+        function renderArticles() {
+            const newsGrid = document.getElementById('newsGrid');
+            const startIndex = (currentPage - 1) * articlesPerPage;
+            const endIndex = startIndex + articlesPerPage;
+            const articlesToShow = filteredArticles.slice(startIndex, endIndex);
+
+            if (articlesToShow.length === 0) {
+                document.getElementById('noResults').style.display = 'block';
+                newsGrid.innerHTML = '';
+                return;
+            }
+
+            document.getElementById('noResults').style.display = 'none';
+
+            newsGrid.innerHTML = articlesToShow.map((article, index) => `
+                <article class="news-card" role="listitem">
+                    <div class="news-meta">
+                        <time class="news-date">${article.displayDate}</time>
+                        <span class="news-source">News Source</span>
+                    </div>
+                    <h2 class="news-title">${article.headline}</h2>
+                    <div class="news-summary">
+                        <p>${article.summarized_text}</p>
+                    </div>
+                    <div class="news-actions">
+                        <button class="read-more-btn" onclick="openModal(${startIndex + index})">
+                            <span class="btn-text">Read More</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        // Render pagination controls
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredArticles.length / articlesPerPage);
+            const paginationContainer = document.getElementById('pagination');
+
+            if (totalPages <= 1) {
+                paginationContainer.innerHTML = '';
+                return;
+            }
+
+            let paginationHTML = `
+                <button class="pagination-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">
+                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                </button>
+            `;
+
+            if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) {
+                    paginationHTML += `
+                        <button class="pagination-btn ${currentPage === i ? 'active' : ''}" onclick="changePage(${i})">
+                            ${i}
+                        </button>
+                    `;
+                }
+            } else {
+                if (currentPage <= 3) {
+                    for (let i = 1; i <= 4; i++) {
+                        paginationHTML += `
+                            <button class="pagination-btn ${currentPage === i ? 'active' : ''}" onclick="changePage(${i})">
+                                ${i}
+                            </button>
+                        `;
+                    }
+                    paginationHTML += `<span class="pagination-ellipsis">...</span>`;
+                    paginationHTML += `
+                        <button class="pagination-btn" onclick="changePage(${totalPages})">
+                            ${totalPages}
+                        </button>
+                    `;
+                } else if (currentPage >= totalPages - 2) {
+                    paginationHTML += `
+                        <button class="pagination-btn" onclick="changePage(1)">
+                            1
+                        </button>
+                    `;
+                    paginationHTML += `<span class="pagination-ellipsis">...</span>`;
+                    for (let i = totalPages - 3; i <= totalPages; i++) {
+                        paginationHTML += `
+                            <button class="pagination-btn ${currentPage === i ? 'active' : ''}" onclick="changePage(${i})">
+                                ${i}
+                            </button>
+                        `;
+                    }
+                } else {
+                    paginationHTML += `
+                        <button class="pagination-btn" onclick="changePage(1)">
+                            1
+                        </button>
+                    `;
+                    paginationHTML += `<span class="pagination-ellipsis">...</span>`;
+                    for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+                        paginationHTML += `
+                            <button class="pagination-btn ${currentPage === i ? 'active' : ''}" onclick="changePage(${i})">
+                                ${i}
+                            </button>
+                        `;
+                    }
+                    paginationHTML += `<span class="pagination-ellipsis">...</span>`;
+                    paginationHTML += `
+                        <button class="pagination-btn" onclick="changePage(${totalPages})">
+                            ${totalPages}
+                        </button>
+                    `;
+                }
+            }
+
+            paginationHTML += `
+                <button class="pagination-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </button>
+            `;
+
+            paginationContainer.innerHTML = paginationHTML;
+        }
+
+        function changePage(page) {
+            const totalPages = Math.ceil(filteredArticles.length / articlesPerPage);
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderArticles();
+            renderPagination();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function updateResultsInfo() {
+            const resultsInfo = document.getElementById('resultsInfo');
+            const total = filteredArticles.length;
+
+            if (total === 0) {
+                resultsInfo.textContent = 'No articles found';
+            } else {
+                const start = (currentPage - 1) * articlesPerPage + 1;
+                const end = Math.min(start + articlesPerPage - 1, total);
+                resultsInfo.textContent = `Showing ${start}-${end} of ${total} articles`;
+            }
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('newsSearch').value.toLowerCase();
+            const timeFilter = document.getElementById('timeFilter').value;
+            const sortFilter = document.getElementById('sortFilter').value;
+
+            filteredArticles = allArticles.filter(article => {
+                const matchesSearch = article.headline.toLowerCase().includes(searchTerm) ||
+                                    article.summarized_text.toLowerCase().includes(searchTerm);
+
+                if (!matchesSearch) return false;
+
+                if (timeFilter !== 'all') {
+                    const articleDate = new Date(article.published_date);
+                    const now = new Date();
+
+                    if (timeFilter === '7days') {
+                        const sevenDaysAgo = new Date();
+                        sevenDaysAgo.setDate(now.getDate() - 7);
+                        return articleDate >= sevenDaysAgo;
+                    } else if (timeFilter === '30days') {
+                        const thirtyDaysAgo = new Date();
+                        thirtyDaysAgo.setDate(now.getDate() - 30);
+                        return articleDate >= thirtyDaysAgo;
+                    } else if (timeFilter === 'custom') {
+                        const startDate = new Date(document.getElementById('startDate').value);
+                        const endDate = new Date(document.getElementById('endDate').value);
+                        if (!isNaN(startDate) && !isNaN(endDate)) {
+                            return articleDate >= startDate && articleDate <= endDate;
+                        }
+                    }
+                }
+                return true;
+            });
+
+            if (sortFilter === 'newest') {
+                filteredArticles.sort((a, b) => new Date(b.published_date) - new Date(a.published_date));
+            } else if (sortFilter === 'oldest') {
+                filteredArticles.sort((a, b) => new Date(a.published_date) - new Date(b.published_date));
+            } else if (sortFilter === 'relevance' && searchTerm) {
+                filteredArticles.sort((a, b) => {
+                    const aTitleCount = (a.headline.toLowerCase().match(new RegExp(searchTerm, 'g')) || []).length;
+                    const bTitleCount = (b.headline.toLowerCase().match(new RegExp(searchTerm, 'g')) || []).length;
+                    const aSummaryCount = (a.summarized_text.toLowerCase().match(new RegExp(searchTerm, 'g')) || []).length;
+                    const bSummaryCount = (b.summarized_text.toLowerCase().match(new RegExp(searchTerm, 'g')) || []).length;
+                    return (bTitleCount * 2 + bSummaryCount) - (aTitleCount * 2 + aSummaryCount);
+                });
+            }
+
+            currentPage = 1;
+            renderArticles();
+            renderPagination();
+            updateResultsInfo();
+        }
+
+        function searchNews() { applyFilters(); }
+
+        function openModal(articleIndex) {
+            const article = filteredArticles[articleIndex];
+            document.getElementById('modalTitle').textContent = article.headline;
+            document.getElementById('modalMeta').textContent = `Published on ${article.displayDate}`;
+            document.getElementById('modalBody').innerHTML = `<p>${article.article_text}</p>`;
+            document.getElementById('articleModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            document.getElementById('articleModal').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        function goBack() { window.history.back(); }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+
+            document.getElementById('endDate').valueAsDate = today;
+            document.getElementById('startDate').valueAsDate = thirtyDaysAgo;
+
+            loadArticles();
+
+            document.getElementById('newsSearch').addEventListener('keyup', e => {
+                if (e.key === 'Enter') searchNews();
+            });
+            document.getElementById('startDate').addEventListener('change', () => {
+                document.getElementById('timeFilter').value = 'custom';
+                applyFilters();
+            });
+            document.getElementById('endDate').addEventListener('change', () => {
+                document.getElementById('timeFilter').value = 'custom';
+                applyFilters();
+            });
+            window.addEventListener('click', e => {
+                if (e.target === document.getElementById('articleModal')) closeModal();
+            });
+        });
+    </script>
+
+</body>
+</html>
