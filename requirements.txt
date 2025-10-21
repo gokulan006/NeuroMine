@@ -12,3 +12,5 @@ faiss-cpu
 langchain_groq
 datasets
 PyPDF2
+gunicorn
+
