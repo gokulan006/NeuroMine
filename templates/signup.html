@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | NeuroMine</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="{{ url_for('static', filename='logo.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='signup.css') }}">
+    <link rel="logo" href="{{ url_for('static', filename='logo.png') }}">
+</head>
+<body>
+     
+
+    <div class="background-animation">
+        <div class="floating-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+            <div class="shape shape-4"></div>
+            <div class="shape shape-5"></div>
+            <div class="shape shape-6"></div>
+        </div>
+    </div>
+
+    <div class="signup-container">
+        <div class="signup-header">
+            <img class="logo" src="{{ url_for('static', filename='logo.png') }}" alt="NeuroMine Logo">
+            <h1>NeuroMine</h1>
+            <p class="subtitle">Create your account and start mining insights</p>
+        </div>
+
+        <div class="signup-form">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <div class="alert {{ category }}">
+                        <i class="fas fa-{% if category == 'error' %}exclamation-triangle{% else %}check-circle{% endif %}"></i>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endwith %}
+
+            <form method="POST" action="/signup" id="signupForm">
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" name="username" id="username" placeholder="Username" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email" name="email" id="email" placeholder="Email Address" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" name="password" id="password" placeholder="Password" required>
+                    </div>
+                    <div class="password-strength" id="passwordStrength">
+                        <div class="strength-bar">
+                            <div class="strength-fill"></div>
+                        </div>
+                        <span class="strength-text">Password strength</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" name="confirm_password" id="confirmPassword" placeholder="Confirm Password" required>
+                    </div>
+                </div>
+
+                <div class="terms-checkbox">
+                    <input type="checkbox" name="terms" id="terms" required>
+                    <label for="terms">
+                        I agree to the <a href="" target="_blank">Terms of Service</a> and 
+                        <a href="" target="_blank">Privacy Policy</a>
+                    </label>
+                </div>
+
+                <button type="submit" class="signup-btn" id="signupBtn">
+                    <span>Create Account</span>
+                    <i class="fas fa-user-plus"></i>
+                </button>
+            </form>
+
+            <div class="divider">
+                <span>or sign up with</span>
+            </div>
+
+            <a href="{{ url_for('google.login') }}" class="google-btn">
+                <i class="fab fa-google"></i> 
+                <span>Sign up with Google</span>
+            </a>
+
+            <div class="login-link">
+                <p>Already have an account? <a href="/login">Sign in here</a></p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="signup-footer">
+        <p>&copy; 2025 NeuroMine. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Theme toggle functionality
+         
+        const body = document.body;
+        
+        
+
+        // Password strength checker
+        const passwordInput = document.getElementById('password');
+        const passwordStrength = document.getElementById('passwordStrength');
+        const strengthText = passwordStrength.querySelector('.strength-text');
+
+        passwordInput.addEventListener('input', function() {
+            const password = this.value;
+            const strength = checkPasswordStrength(password);
+            
+            passwordStrength.className = 'password-strength strength-' + strength.level;
+            strengthText.textContent = strength.text;
+        });
+
+        function checkPasswordStrength(password) {
+            if (password.length === 0) {
+                return { level: '', text: 'Password strength' };
+            }
+            
+            let score = 0;
+            const checks = {
+                length: password.length >= 8,
+                lowercase: /[a-z]/.test(password),
+                uppercase: /[A-Z]/.test(password),
+                numbers: /\d/.test(password),
+                symbols: /[^A-Za-z0-9]/.test(password)
+            };
+            
+            score = Object.values(checks).filter(Boolean).length;
+            
+            if (score < 3) {
+                return { level: 'weak', text: 'Weak password' };
+            } else if (score < 4) {
+                return { level: 'medium', text: 'Medium strength' };
+            } else {
+                return { level: 'strong', text: 'Strong password' };
+            }
+        }
+
+        // Form validation
+        const signupForm = document.getElementById('signupForm');
+        const signupBtn = document.getElementById('signupBtn');
+        const confirmPassword = document.getElementById('confirmPassword');
+
+        confirmPassword.addEventListener('input', function() {
+            const password = passwordInput.value;
+            const confirm = this.value;
+            
+            if (confirm && password !== confirm) {
+                this.style.borderColor = '#c0392b';
+            } else {
+                this.style.borderColor = '#dee2e6';
+            }
+        });
+
+        signupForm.addEventListener('submit', function(e) {
+            const password = passwordInput.value;
+            const confirm = confirmPassword.value;
+            
+            if (password !== confirm) {
+                e.preventDefault();
+                showAlert('Passwords do not match!', 'error');
+                return;
+            }
+            
+            // Show loading state
+            signupBtn.classList.add('loading');
+            signupBtn.innerHTML = '<span>Creating Account...</span>';
+        });
+
+        function showAlert(message, type) {
+            const existingAlerts = document.querySelectorAll('.alert');
+            existingAlerts.forEach(alert => alert.remove());
+            
+            const alert = document.createElement('div');
+            alert.className = `alert ${type}`;
+            alert.innerHTML = `
+                <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i>
+                ${message}
+            `;
+            
+            const form = document.querySelector('.signup-form');
+            form.insertBefore(alert, form.firstElementChild);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Add slide-in animation on load
+        window.addEventListener('load', () => {
+            const signupContainer = document.querySelector('.signup-container');
+            signupContainer.style.animation = 'slideIn 0.6s ease-out';
+        });
+
+        // Add CSS for slide-in animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px) scale(0.95);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Real-time username validation with server check
+        const usernameInput = document.getElementById('username');
+        let usernameTimeout;
+
+        usernameInput.addEventListener('input', function() {
+            clearTimeout(usernameTimeout);
+            const username = this.value.trim();
+            
+            if (username.length < 3) {
+                this.style.borderColor = '#dee2e6';
+                return;
+            }
+            
+            usernameTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch('/api/validate-username', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ username: username })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.valid) {
+                        this.style.borderColor = '#27ae60';
+                        this.style.boxShadow = '0 0 0 3px rgba(39, 174, 96, 0.1)';
+                    } else {
+                        this.style.borderColor = '#c0392b';
+                        this.style.boxShadow = '0 0 0 3px rgba(192, 57, 43, 0.1)';
+                        showValidationMessage(this, result.message);
+                    }
+                } catch (error) {
+                    console.error('Username validation error:', error);
+                }
+            }, 500);
+        });
+
+        // Real-time email validation with server check
+        const emailInput = document.getElementById('email');
+        let emailTimeout;
+        
+        emailInput.addEventListener('input', function() {
+            clearTimeout(emailTimeout);
+            const email = this.value.trim();
+            
+            if (!email) {
+                this.style.borderColor = '#dee2e6';
+                return;
+            }
+            
+            emailTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch('/api/validate-email', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ email: email })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.valid) {
+                        this.style.borderColor = '#27ae60';
+                        this.style.boxShadow = '0 0 0 3px rgba(39, 174, 96, 0.1)';
+                    } else {
+                        this.style.borderColor = '#c0392b';
+                        this.style.boxShadow = '0 0 0 3px rgba(192, 57, 43, 0.1)';
+                        showValidationMessage(this, result.message);
+                    }
+                } catch (error) {
+                    console.error('Email validation error:', error);
+                }
+            }, 500);
+        });
+
+        // Enhanced password strength checker with server validation
+        passwordInput.addEventListener('input', async function() {
+            const password = this.value;
+            
+            if (!password) {
+                passwordStrength.className = 'password-strength';
+                strengthText.textContent = 'Password strength';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/validate-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ password: password })
+                });
+                
+                const result = await response.json();
+                
+                passwordStrength.className = 'password-strength strength-' + result.level;
+                
+                const strengthTexts = {
+                    'weak': 'Weak password',
+                    'medium': 'Medium strength',
+                    'strong': 'Strong password'
+                };
+                
+                strengthText.textContent = strengthTexts[result.level] || 'Password strength';
+                
+                // Update input border based on strength
+                if (result.is_valid) {
+                    this.style.borderColor = result.level === 'strong' ? '#27ae60' : '#f39c12';
+                } else {
+                    this.style.borderColor = '#c0392b';
+                }
+                
+                // Show feedback if password is weak
+                if (result.feedback && result.feedback.length > 0) {
+                    showValidationMessage(this, result.feedback.join(', '));
+                } else {
+                    clearValidationMessage(this);
+                }
+                
+            } catch (error) {
+                console.error('Password validation error:', error);
+            }
+        });
+
+        // Show validation messages
+        function showValidationMessage(element, message) {
+            clearValidationMessage(element);
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'validation-message';
+            messageDiv.textContent = message;
+            messageDiv.style.cssText = `
+                color: #c0392b;
+                font-size: 12px;
+                margin-top: 4px;
+                padding-left: 15px;
+            `;
+            
+            element.parentNode.appendChild(messageDiv);
+        }
+
+        function clearValidationMessage(element) {
+            const existing = element.parentNode.querySelector('.validation-message');
+            if (existing) {
+                existing.remove();
+            }
+        }
+    </script>
+</body>
+</html>
