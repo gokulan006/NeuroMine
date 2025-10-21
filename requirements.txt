@@ -14,4 +14,7 @@ datasets
 PyPDF2
 gunicorn
 flask
+werkzeug
+flask_dance
+
 
